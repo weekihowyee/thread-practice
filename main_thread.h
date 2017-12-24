@@ -10,8 +10,18 @@ typedef enum {
   MSG_READ
   } thread_msg_type_t;
 
+typedef struct {
+	
+  	thread_msg_type_t type;
+
+  	void *msg_data;
+
+}thread_msg_t;
+
 typedef struct {  //thread private data
 	
+  thread_ctl *parent;
+
 	LinkQueue *Q_Msg;
 
 	pthread_mutex_t msg_q_lock;

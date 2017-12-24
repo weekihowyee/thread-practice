@@ -4,7 +4,20 @@
 #include "module_queue.h"
 #include "main_thread.h"
 
+int enqueue_msg(private_t *priv,thread_msg_t *msg)
+{
 
+	pthread_mutex_lock(&priv->msg_q_lock);
+	Insert_Q(priv->Q_Msg,(void*)msg);
+	pthread_mutex_unlock(&thread_data->msg_q_lock);
+
+
+	pthread_mutex_lock(&priv->msg_q_lock);
+	pthread_cond_signal(&priv->thread_cond);
+	pthread_mutex_unlock(&thread_data->msg_q_lock);
+
+	return 1;
+}
 
 int enqueue_buffer(thread_ctl *t_ctl , char *buf ,int queue_flag)
 {
@@ -32,6 +45,33 @@ int dequeue_buffer(thread_ctl *t_ctl , char *buf ,int queue_flag)
 	}
 
 	return 0;
+}
+
+int Process_Msg(private_t *priv,thread_msg_t *msg)
+{
+	switch(msg->type)
+	{
+
+		case MSG_PRODUCT_INIT_BUFFER:
+		{
+			
+			break;
+		}
+
+		case MSG_WRITE:
+		{
+			
+			break;
+		}
+
+		case MSG_READ:
+		{
+			
+			break;
+		}
+	}
+
+	return 1;
 }
 
 int product_thread_handler(thread_ctl *t_ctl)
@@ -134,6 +174,8 @@ int Init_Ctl_Data(thread_ctl *t_ctl)
 	t_ctl->consumer_priv = (private_t *)malloc(sizeof(private_t));
 	Init_Private_Data(t_ctl->product_priv);
 	Init_Private_Data(t_ctl->consumer_priv);
+	t_ctl->product_priv->parent = t_ctl;
+	t_ctl->consumer_priv->parent = t_ctl;
 }
 
 int main()
