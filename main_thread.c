@@ -19,9 +19,9 @@ int enqueue_msg(private_t *priv,thread_msg_t *msg)
 	return 1;
 }
 
-int enqueue_buffer(thread_ctl *t_ctl , char *buf ,int queue_flag)
+int enqueue_buffer(thread_ctl *t_ctl , char *buf ,buffer_q_type_t queue_flag)
 {
-	if(queue_flag)  // enqueue to empty queue
+	if(queue_flag == EMPTY_Q_TYPE)  // enqueue to empty queue
 	{
 		Insert_Q(t_ctl->Q_Empty , (void *)buf);
 	}
@@ -49,18 +49,35 @@ int dequeue_buffer(thread_ctl *t_ctl , char *buf ,int queue_flag)
 
 int Process_Msg(private_t *priv,thread_msg_t *msg)
 {
+
 	switch(msg->type)
 	{
 
 		case MSG_PRODUCT_INIT_BUFFER:
 		{
-			
+			int *num;
+			char *buf;
+			if(priv->thread_type == THREAD_TYPE_CONSUMER)
+			{
+				printf("Process_Msg: THREAD_TYPE_CONSUMER , Pass\n");
+				break;
+			}
+			num = (int *)msg->data;
+			for(i=0;i<(*num);i++)  // alloc init buffers
+			{
+				buf=(char *)malloc(BUFFER_SIZE); 
+				enqueue_buffer(PRIV->parent,buf,EMPTY_Q_TYPE);
+			}	
 			break;
 		}
 
 		case MSG_WRITE:
 		{
-			
+			if(priv->thread_type == THREAD_TYPE_CONSUMER)
+			{
+				printf("Process_Msg: THREAD_TYPE_CONSUMER , Pass\n");
+				break;
+			}
 			break;
 		}
 
@@ -77,15 +94,24 @@ int Process_Msg(private_t *priv,thread_msg_t *msg)
 int product_thread_handler(thread_ctl *t_ctl)
 {
 
-	int i;
-	char *buf;
+	int i,exit_flag=0;
+	
 
 	printf("enter product_thread_handler , alloc buffer\n");
 
-	for(i=0;i<t_ctl->buffer_num;i++)  // alloc init buffers
+	while(!exit_flag)
 	{
-		buf=(char *)malloc(BUFFER_SIZE); 
-		enqueue_buffer(t_ctl,buf,1);
+		pthread_mutex_lock(&t_ctl->product_priv->msg_q_lock);
+		while(Is_Empty_Q(t_ctl->product_priv->Q_Msg))
+		{
+			pthread_cond_wait(&t_ctl->product_priv->thread_cond,&t_ctl->product_priv->msg_q_lock);
+		}
+		pthread_mutex_unlock(&t_ctl->product_priv->msg_q_lock);
+
+		
+
+		Process_Msg();
+
 	}
 
 	return 0;
@@ -176,6 +202,11 @@ int Init_Ctl_Data(thread_ctl *t_ctl)
 	Init_Private_Data(t_ctl->consumer_priv);
 	t_ctl->product_priv->parent = t_ctl;
 	t_ctl->consumer_priv->parent = t_ctl;
+
+	t_ctl->product_priv->thread_type = THREAD_TYPE_PRODUCT;
+	t_ctl->product_priv->thread_type = THREAD_TYPE_CONSUMER;
+
+	return 1;
 }
 
 int main()

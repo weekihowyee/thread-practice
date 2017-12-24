@@ -5,10 +5,21 @@
 #define BUFFER_SIZE 10
 
 typedef enum {
+  EMPTY_Q_TYPE,
+  DONE_Q_TYPE
+  } buffer_q_type_t;
+
+typedef enum {
   MSG_PRODUCT_INIT_BUFFER,
   MSG_WRITE,
   MSG_READ
   } thread_msg_type_t;
+
+typedef enum {
+  THREAD_TYPE_PRODUCT,
+  THREAD_TYPE_CONSUMER,
+  THREAD_TYPE_BOTH
+  } thread_type_t;
 
 typedef struct {
 	
@@ -21,6 +32,8 @@ typedef struct {
 typedef struct {  //thread private data
 	
   thread_ctl *parent;
+
+  thread_type_t thread_type;
 
 	LinkQueue *Q_Msg;
 
