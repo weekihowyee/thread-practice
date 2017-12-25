@@ -21,6 +21,20 @@ typedef enum {
   THREAD_TYPE_BOTH
   } thread_type_t;
 
+typedef enum {
+  THREAD_CMD_INIT,
+  THREAD_CMD_WRITE,
+  THREAD_CMD_READ
+  } thread_cmd_type_t;
+
+typedef struct {
+
+    thread_cmd_type_t type;
+
+    void *cmd_data;
+
+}main_cmd;
+
 typedef struct {
 	
   	thread_msg_type_t type;
