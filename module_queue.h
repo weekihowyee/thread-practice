@@ -29,6 +29,7 @@ int Insert_Q(LinkQueue *q,void *data)
     if(p==NULL)
         exit(0);
     p->data=data;
+	printf("Insert_Q %p\n",data);
     p->next=NULL;
     q->Rear->next=p;
     q->Rear=p;
@@ -40,6 +41,7 @@ int Delete_Q(LinkQueue *q,void *data)
     QueuePtr p;
     p=q->Front->next;
     data=p->data;
+	printf("Delete_Q %p\n",data);
     q->Front->next=p->next;
     if(q->Rear==p)
         q->Rear=q->Front;

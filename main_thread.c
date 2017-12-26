@@ -7,21 +7,49 @@
 int enqueue_msg(private_t *priv,thread_msg_t *msg)
 {
 
+	printf("enqueue_msg E , %d\n",msg->type);
+
 	pthread_mutex_lock(&priv->msg_q_lock);
 	Insert_Q(priv->Q_Msg,(void*)msg);
 	pthread_mutex_unlock(&priv->msg_q_lock);
-
 
 	pthread_mutex_lock(&priv->msg_q_lock);
 	pthread_cond_signal(&priv->thread_cond);
 	pthread_mutex_unlock(&priv->msg_q_lock);
 
+	printf("enqueue_msg L\n");
+
 	return 1;
 }
 
-int dequeue_msg(private_t *priv , thread_msg_t *msg)
+int dequeue_msg(private_t *priv , void *msg)
 {
 	Delete_Q(priv->Q_Msg,msg);
+	return 1;
+}
+
+int Transfer_Cmd_To_Msg(main_cmd *cmd,thread_msg_t *msg)
+{
+
+	printf("Transfer_Cmd_To_Msg E\n");
+	if(cmd->type == THREAD_CMD_INIT)
+	{
+		printf("Transfer_Cmd_To_Msg MSG_PRODUCT_INIT_BUFFER %d\n",*((int *)msg->msg_data));
+		msg->type = MSG_PRODUCT_INIT_BUFFER;
+		msg->msg_data = cmd->cmd_data;
+	}
+	if(cmd->type == THREAD_CMD_WRITE)
+	{
+		msg->type = MSG_WRITE;
+		msg->msg_data = cmd->cmd_data;
+	}
+	if(cmd->type == THREAD_CMD_READ)
+	{
+		msg->type = MSG_READ;
+	}
+
+	printf("Transfer_Cmd_To_Msg L\n");
+
 	return 1;
 }
 
@@ -57,6 +85,7 @@ int Process_Msg(private_t *priv,thread_msg_t *msg)
 {
 	char *buf;
 	int i;
+	printf("Process_Msg: ENTER %d\n",msg->type);
 	switch(msg->type)
 	{
 
@@ -69,11 +98,17 @@ int Process_Msg(private_t *priv,thread_msg_t *msg)
 				printf("Process_Msg: THREAD_TYPE_CONSUMER , Pass\n");
 				break;
 			}
+			printf("Process_Msg: Init Buffer %d\n",*num);
 			num = (int *)msg->msg_data;
+			if(*num>10)
+				*num = 10;
+			printf("Process_Msg: Init Buffer %d\n",*num);
 			for(i=0;i<(*num);i++)  // alloc init buffers
 			{
+				printf("Process_Msg alloc\n");
 				buf=(char *)malloc(BUFFER_SIZE); 
-				memcpy(buf,0,BUFFER_SIZE);
+				printf("Process_Msg \n");
+				memset(buf,0,BUFFER_SIZE);
 				enqueue_buffer((thread_ctl *)priv->parent,buf,EMPTY_Q_TYPE);
 			}	
 			break;
@@ -117,9 +152,9 @@ int product_thread_handler(thread_ctl *t_ctl)
 {
 
 	int i,exit_flag=0;
-	thread_msg_t *msg;
-
-	printf("enter product_thread_handler , alloc buffer\n");
+	thread_msg_t *msg = (thread_msg_t *)malloc(sizeof(thread_msg_t));
+	
+	printf("enter product_thread_handler\n");
 
 	while(!exit_flag)
 	{
@@ -130,11 +165,14 @@ int product_thread_handler(thread_ctl *t_ctl)
 		}
 		pthread_mutex_unlock(&t_ctl->product_priv->msg_q_lock);
 
+		printf("Get Msg for product\n");
+
 		pthread_mutex_lock(&t_ctl->product_priv->msg_q_lock);
-		dequeue_msg(&t_ctl->product_priv,msg);
+		dequeue_msg(t_ctl->product_priv,(void *)msg);
 		pthread_mutex_unlock(&t_ctl->product_priv->msg_q_lock);
 
-		Process_Msg(&t_ctl->product_priv,msg);
+		printf("PROC Msg for product %p\n",msg);
+		Process_Msg(t_ctl->product_priv,(thread_msg_t *)msg);
 
 	}
 
@@ -146,7 +184,7 @@ int consumer_thread_handler(thread_ctl *t_ctl)
 {
 
 	int i,exit_flag=0;
-	thread_msg_t *msg;
+	void *msg;
 
 	printf("enter consumer_thread_handler %d\n");
 
@@ -160,10 +198,10 @@ int consumer_thread_handler(thread_ctl *t_ctl)
 		pthread_mutex_unlock(&t_ctl->consumer_priv->msg_q_lock);
 
 		pthread_mutex_lock(&t_ctl->consumer_priv->msg_q_lock);
-		dequeue_msg(&t_ctl->consumer_priv,msg);
+		dequeue_msg(t_ctl->consumer_priv,msg);
 		pthread_mutex_unlock(&t_ctl->consumer_priv->msg_q_lock);
 
-		Process_Msg(&t_ctl->consumer_priv,msg);
+		Process_Msg(t_ctl->consumer_priv,(thread_msg_t *)msg);
 
 	}
 
@@ -248,15 +286,56 @@ int Init_Ctl_Data(thread_ctl *t_ctl)
 	t_ctl->consumer_priv->parent = (void *)t_ctl;
 
 	t_ctl->product_priv->thread_type = THREAD_TYPE_PRODUCT;
-	t_ctl->product_priv->thread_type = THREAD_TYPE_CONSUMER;
+	t_ctl->consumer_priv->thread_type = THREAD_TYPE_CONSUMER;
 
 	return 1;
 }
 
-int process_cmd(main_cmd *cmd)
+int process_cmd(thread_ctl *t_ctl,main_cmd *cmd)
 {
-	// write your code here
+	char in_buf[10];
+	int num;
+	thread_msg_t *msg = (thread_msg_t *)malloc(sizeof(thread_msg_t));
+	INPUT:
+	puts("Input your cmd! THREAD_CMD_INIT THREAD_CMD_WRITE THREAD_CMD_READ");
+	gets(in_buf);
 
+	if(strcmp(in_buf,"THREAD_CMD_INIT") == 0)
+	{
+		cmd->type = THREAD_CMD_INIT;
+		puts("Input number ");
+		gets(in_buf);
+		num = atoi(in_buf);
+		printf("want %d num bufs",num);
+		cmd->cmd_data =(void *)(&num);
+		Transfer_Cmd_To_Msg(cmd,msg);
+		enqueue_msg(t_ctl->product_priv,msg);
+		sleep(3);
+		goto INPUT;
+	}
+
+	if(strcmp(in_buf,"THREAD_CMD_WRITE") == 0)
+	{
+		cmd->type = THREAD_CMD_WRITE;
+		puts("Input Text ");
+		gets(in_buf);
+		cmd->cmd_data =(void *)(in_buf);
+		Transfer_Cmd_To_Msg(cmd,msg);
+		enqueue_msg(t_ctl->product_priv,msg);
+		sleep(3);
+		goto INPUT;
+	}
+
+	if(strcmp(in_buf,"THREAD_CMD_READ") == 0)
+	{
+		cmd->type = THREAD_CMD_READ;
+		cmd->cmd_data =NULL;
+		Transfer_Cmd_To_Msg(cmd,msg);
+		enqueue_msg(t_ctl->consumer_priv,msg);
+		sleep(3);
+		goto INPUT;
+	}
+	
 	//cmd->type = ;
 	//cmd->cmd_data =(void *) ;
 
@@ -269,6 +348,8 @@ int main()
 
 	thread_ctl t_ctl;
 
+	main_cmd *cmd = (main_cmd *)malloc(sizeof(main_cmd));
+
 	Init_Ctl_Data(&t_ctl);
 
 	thread_create_entry(&t_ctl);
@@ -276,6 +357,8 @@ int main()
 	sleep(3); // delay to make sure thread creating successfully
 
 	printf("create thread done\n");
+
+	process_cmd(&t_ctl,cmd);
 
 	return 0;
 }

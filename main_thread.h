@@ -10,8 +10,8 @@ typedef enum {
   } buffer_q_type_t;
 
 typedef enum {
-  MSG_PRODUCT_INIT_BUFFER,
-  MSG_WRITE,
+  MSG_PRODUCT_INIT_BUFFER = 0,
+  MSG_WRITE = 1,
   MSG_READ
   } thread_msg_type_t;
 
