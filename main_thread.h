@@ -45,7 +45,7 @@ typedef struct {
 
 typedef struct {  //thread private data
 	
-  thread_ctl *parent;
+  void *parent;
 
   thread_type_t thread_type;
 
@@ -74,5 +74,6 @@ typedef struct {	// common data
         private_t *consumer_priv;
 
 } thread_ctl;
+
 
 #endif

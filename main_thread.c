@@ -9,12 +9,12 @@ int enqueue_msg(private_t *priv,thread_msg_t *msg)
 
 	pthread_mutex_lock(&priv->msg_q_lock);
 	Insert_Q(priv->Q_Msg,(void*)msg);
-	pthread_mutex_unlock(&thread_data->msg_q_lock);
+	pthread_mutex_unlock(&priv->msg_q_lock);
 
 
 	pthread_mutex_lock(&priv->msg_q_lock);
 	pthread_cond_signal(&priv->thread_cond);
-	pthread_mutex_unlock(&thread_data->msg_q_lock);
+	pthread_mutex_unlock(&priv->msg_q_lock);
 
 	return 1;
 }
@@ -56,6 +56,7 @@ int dequeue_buffer(thread_ctl *t_ctl , char *buf ,buffer_q_type_t queue_flag)
 int Process_Msg(private_t *priv,thread_msg_t *msg)
 {
 	char *buf;
+	int i;
 	switch(msg->type)
 	{
 
@@ -73,7 +74,7 @@ int Process_Msg(private_t *priv,thread_msg_t *msg)
 			{
 				buf=(char *)malloc(BUFFER_SIZE); 
 				memcpy(buf,0,BUFFER_SIZE);
-				enqueue_buffer(priv->parent,buf,EMPTY_Q_TYPE);
+				enqueue_buffer((thread_ctl *)priv->parent,buf,EMPTY_Q_TYPE);
 			}	
 			break;
 		}
@@ -87,9 +88,9 @@ int Process_Msg(private_t *priv,thread_msg_t *msg)
 				printf("Process_Msg: THREAD_TYPE_CONSUMER , Pass\n");
 				break;
 			}
-			dequeue_buffer(priv->parent,buf,EMPTY_Q_TYPE);
+			dequeue_buffer((thread_ctl *)priv->parent,buf,EMPTY_Q_TYPE);
 			memcpy(buf,data,strlen(data));
-			enqueue_buffer(priv->parent,buf,DONE_Q_TYPE);
+			enqueue_buffer((thread_ctl *)priv->parent,buf,DONE_Q_TYPE);
 			break;
 		}
 
@@ -100,11 +101,11 @@ int Process_Msg(private_t *priv,thread_msg_t *msg)
 				printf("Process_Msg: THREAD_TYPE_PRODUCT , Pass\n");
 				break;
 			}
-			dequeue_buffer(priv->parent,buf,DONE_Q_TYPE);
-			memcpy(buf,data,strlen(data));
+			dequeue_buffer((thread_ctl *)priv->parent,buf,DONE_Q_TYPE);
+			memcpy(buf,msg->msg_data,strlen(msg->msg_data));
 			puts(buf);
 			memcpy(buf,0,BUFFER_SIZE);
-			enqueue_buffer(priv->parent,buf,EMPTY_Q_TYPE);
+			enqueue_buffer((thread_ctl *)priv->parent,buf,EMPTY_Q_TYPE);
 			break;
 		}
 	}
@@ -243,8 +244,8 @@ int Init_Ctl_Data(thread_ctl *t_ctl)
 	t_ctl->consumer_priv = (private_t *)malloc(sizeof(private_t));
 	Init_Private_Data(t_ctl->product_priv);
 	Init_Private_Data(t_ctl->consumer_priv);
-	t_ctl->product_priv->parent = t_ctl;
-	t_ctl->consumer_priv->parent = t_ctl;
+	t_ctl->product_priv->parent = (void *)t_ctl;
+	t_ctl->consumer_priv->parent = (void *)t_ctl;
 
 	t_ctl->product_priv->thread_type = THREAD_TYPE_PRODUCT;
 	t_ctl->product_priv->thread_type = THREAD_TYPE_CONSUMER;
